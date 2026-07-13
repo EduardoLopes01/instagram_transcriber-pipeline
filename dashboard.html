@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Transcrição e Custos - Instagram Pipeline</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="family">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f0c1b 0%, #15102a 50%, #06020f 100%);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.06);
+            --primary: #8a2be2;
+            --primary-glow: rgba(138, 43, 226, 0.4);
+            --secondary: #00f2fe;
+            --secondary-glow: rgba(0, 242, 254, 0.3);
+            --text-main: #f3f1f6;
+            --text-muted: #a09cb0;
+            --success: #00e676;
+            --success-glow: rgba(0, 230, 118, 0.2);
+            --konbini-color: #ff007f;
+            --gemini-color: #00f2fe;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+            overflow-x: hidden;
+        }
+
+        /* Ambient Glow Shadows */
+        .ambient-glow-1 {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: var(--primary);
+            filter: blur(150px);
+            opacity: 0.15;
+            top: -100px;
+            left: -100px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .ambient-glow-2 {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: var(--secondary);
+            filter: blur(150px);
+            opacity: 0.12;
+            bottom: -50px;
+            right: -50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            z-index: 1;
+        }
+
+        /* Header section */
+        header {
+            margin-bottom: 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .logo-area h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #fff 0%, var(--secondary) 50%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-area p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+
+        .badge-abnt {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        /* Grid metrics cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            width: 4px;
+            height: 100%;
+            left: 0;
+            top: 0;
+        }
+
+        .metric-card.m-blue::before { background: var(--secondary); }
+        .metric-card.m-purple::before { background: var(--primary); }
+        .metric-card.m-green::before { background: var(--success); }
+        .metric-card.m-pink::before { background: var(--konbini-color); }
+
+        .metric-title {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.5rem 0 0.2rem 0;
+            color: #fff;
+        }
+
+        .metric-desc {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        /* Core Section Grid */
+        .section-grid {
+            display: grid;
+            grid-template-columns: 1.8fr 1.2fr;
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .section-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.8rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .card-header {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* Execution Table */
+        .table-wrapper {
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 1rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--card-border);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .shortcode-link {
+            color: var(--secondary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .shortcode-link:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        .badge-status {
+            background: rgba(0, 230, 118, 0.1);
+            color: var(--success);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Distribution visual meter */
+        .cost-distribution {
+            margin-top: 1.5rem;
+        }
+
+        .meter-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .meter-bar {
+            height: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .meter-segment {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .segment-konbini {
+            background: var(--konbini-color);
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+        }
+
+        .segment-gemini {
+            background: var(--gemini-color);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+        }
+
+        .legend-list {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* Calculator section */
+        .calc-input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .calc-input-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .calc-input-wrapper {
+            position: relative;
+        }
+
+        .calc-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .calc-input:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 10px var(--secondary-glow);
+        }
+
+        .calc-results {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.6rem 0;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .calc-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-top: 0.5rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--secondary);
+        }
+
+        /* Analogy card */
+        .analogy-box {
+            background: rgba(138, 43, 226, 0.06);
+            border: 1px solid rgba(138, 43, 226, 0.15);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 0.85rem;
+            color: #d1c7f0;
+        }
+
+        .analogy-icon {
+            font-size: 1.5rem;
+        }
+
+        /* Static info about parameters */
+        .info-bullets {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .info-bullets li {
+            list-style-type: none;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .info-bullets li::before {
+            content: "•";
+            color: var(--secondary);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
+
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <h1>Instagram Transcription Pipeline</h1>
+                <p>Análise Operacional & Centro de Custos em Tempo Real</p>
+            </div>
+            <div class="badge-abnt">MÉTRICAS BASE NBR 10719</div>
+        </header>
+
+        <!-- Metrics cards Grid -->
+        <section class="metrics-grid">
+            <div class="metric-card m-blue">
+                <div class="metric-title">Total de Reels</div>
+                <div class="metric-value" id="val-total-videos">0</div>
+                <div class="metric-desc">Vídeos processados no pipeline</div>
+            </div>
+            <div class="metric-card m-purple">
+                <div class="metric-title">Custo Médio Unitário</div>
+                <div class="metric-value" id="val-avg-cost">R$ 0,00</div>
+                <div class="metric-desc">BRL acumulado (Konbini + Gemini)</div>
+            </div>
+            <div class="metric-card m-green">
+                <div class="metric-title">Tempo Médio</div>
+                <div class="metric-value" id="val-avg-time">0.0s</div>
+                <div class="metric-desc">Processamento completo de ponta a ponta</div>
+            </div>
+            <div class="metric-card m-pink">
+                <div class="metric-title">Volume de Tokens</div>
+                <div class="metric-value" id="val-avg-tokens">0</div>
+                <div class="metric-desc">Média de tokens processados por vídeo</div>
+            </div>
+        </section>
+
+        <!-- Core layout details -->
+        <div class="section-grid">
+            
+            <!-- Left Side: Table of Runs -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">Histórico de Execuções Recentes</h2>
+                    <span class="badge-status">API Ativa</span>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Instagram ID</th>
+                                <th>Data / Hora</th>
+                                <th>Tempo (s)</th>
+                                <th>Tokens (I/O)</th>
+                                <th>Gemini (R$)</th>
+                                <th>Parceiro (R$)</th>
+                                <th>Total (R$)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Populated dynamically from history.js -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Visual Cost Distribution chart inside the table card -->
+                <div class="cost-distribution">
+                    <div class="meter-label">
+                        <span style="font-weight: 600;">Distribuição Média de Custos por Vídeo</span>
+                        <span style="color: var(--secondary);" id="val-gemini-pct">8.3% Gemini vs 91.7% Parceiro</span>
+                    </div>
+                    <div class="meter-bar">
+                        <div class="meter-segment segment-konbini" id="meter-konbini-bar" style="width: 91.7%;"></div>
+                        <div class="meter-segment segment-gemini" id="meter-gemini-bar" style="width: 8.3%;"></div>
+                    </div>
+                    <div class="legend-list">
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: var(--konbini-color);"></span>
+                            <span>KonbiniAPI (Raspagem e Link): R$ 0,056 (Fixo)</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: var(--gemini-color);"></span>
+                            <span>Gemini 3.1 Flash Lite (IA): Variável</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Projection Calculator -->
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">Simulador de Custos em Escala</h2>
+                </div>
+                <div class="calc-input-group">
+                    <label for="vol-input">VOLUME DE REELS MENSAIS</label>
+                    <div class="calc-input-wrapper">
+                        <input type="number" id="vol-input" class="calc-input" value="1000" min="1" step="10">
+                    </div>
+                </div>
+
+                <div class="calc-results">
+                    <div class="calc-row">
+                        <span>KonbiniAPI (Raspagem)</span>
+                        <span id="calc-konbini">R$ 56,00</span>
+                    </div>
+                    <div class="calc-row">
+                        <span>Gemini API (Input + Output)</span>
+                        <span id="calc-gemini">R$ 5,09</span>
+                    </div>
+                    <div class="calc-row">
+                        <span>Tokens Estimados</span>
+                        <span id="calc-tokens" style="color: var(--text-muted);">7.460.000</span>
+                    </div>
+                    <div class="calc-row">
+                        <span>Custo Total Estimado</span>
+                        <span id="calc-total">R$ 61,09</span>
+                    </div>
+                </div>
+
+                <!-- Analogy Box (PM Perspective) -->
+                <div class="analogy-box">
+                    <span class="analogy-icon">☕</span>
+                    <span>Esse custo mensal equivale a aproximadamente <strong id="val-coffee-calc" style="color: #fff;">12 cafezinhos</strong> de R$ 5,00.</span>
+                </div>
+
+                <div class="info-bullets">
+                    <h3 style="font-size: 0.85rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; margin-top: 1rem;">Parâmetros Utilizados</h3>
+                    <li>Câmbio Comercial de Referência: 1 USD = R$ 5,60 BRL</li>
+                    <li>Média de tokens por vídeo: 7.460 tokens</li>
+                    <li>Precificação Gemini 3.1 Flash Lite: $0,075 / 1M Input, $0,30 / 1M Output</li>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Import data from history.js -->
+    <script src="history.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Se o arquivo history.js falhar por qualquer motivo ou estiver vazio
+            const runs = (typeof HISTORY_DATA !== 'undefined') ? HISTORY_DATA : [];
+            
+            // 1. Populando métricas superiores
+            const totalVideos = runs.length;
+            document.getElementById("val-total-videos").textContent = totalVideos;
+
+            let totalBrl = 0;
+            let totalTime = 0;
+            let totalTokens = 0;
+            let totalGeminiBrl = 0;
+            let totalKonbiniBrl = 0;
+
+            runs.forEach(r => {
+                totalBrl += r.total_cost_brl;
+                totalTime += r.execution_time_seconds;
+                totalTokens += r.total_tokens;
+                totalGeminiBrl += r.gemini_cost_brl;
+                totalKonbiniBrl += r.konbini_cost_brl;
+            });
+
+            const avgCost = totalVideos > 0 ? (totalBrl / totalVideos) : 0;
+            const avgTime = totalVideos > 0 ? (totalTime / totalVideos) : 0;
+            const avgTokens = totalVideos > 0 ? Math.round(totalTokens / totalVideos) : 0;
+
+            document.getElementById("val-avg-cost").textContent = `R$ ${avgCost.toFixed(3)}`;
+            document.getElementById("val-avg-time").textContent = `${avgTime.toFixed(1)}s`;
+            document.getElementById("val-avg-tokens").textContent = avgTokens.toLocaleString('pt-BR');
+
+            // 2. Populando a tabela de execuções
+            const tbody = document.getElementById("table-body");
+            if (totalVideos === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nenhum dado encontrado no histórico. Rode o script scraper.py para popular.</td></tr>`;
+            } else {
+                // Ordena por data decrescente (mais recentes primeiro)
+                const sortedRuns = [...runs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                sortedRuns.forEach(r => {
+                    const row = document.createElement("tr");
+                    const dateObj = new Date(r.timestamp);
+                    const formattedDate = dateObj.toLocaleString('pt-BR');
+
+                    row.innerHTML = `
+                        <td><a href="https://www.instagram.com/reel/${r.shortcode}/" target="_blank" class="shortcode-link">${r.shortcode}</a></td>
+                        <td style="color: var(--text-muted);">${formattedDate}</td>
+                        <td>${r.execution_time_seconds}s</td>
+                        <td><span style="font-size: 0.8rem; color: var(--text-muted);">${r.input_tokens.toLocaleString('pt-BR')} I</span> / <span style="font-size: 0.8rem; color: var(--text-muted);">${r.output_tokens.toLocaleString('pt-BR')} O</span></td>
+                        <td>R$ ${r.gemini_cost_brl.toFixed(5)}</td>
+                        <td>R$ ${r.konbini_cost_brl.toFixed(3)}</td>
+                        <td style="font-weight: 600; color: #fff;">R$ ${r.total_cost_brl.toFixed(4)}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            // 3. Calculando proporção real para a barra de medição
+            if (totalBrl > 0) {
+                const geminiPct = (totalGeminiBrl / totalBrl) * 100;
+                const konbiniPct = (totalKonbiniBrl / totalBrl) * 100;
+
+                document.getElementById("val-gemini-pct").textContent = `${geminiPct.toFixed(1)}% Gemini vs ${konbiniPct.toFixed(1)}% Parceiro`;
+                document.getElementById("meter-konbini-bar").style.width = `${konbiniPct}%`;
+                document.getElementById("meter-gemini-bar").style.width = `${geminiPct}%`;
+            }
+
+            // 4. Calculadora interativa
+            const volInput = document.getElementById("vol-input");
+            
+            function updateCalculator() {
+                const vol = parseInt(volInput.value) || 0;
+                
+                // Média representativa de tokens por vídeo
+                const repTokens = avgTokens > 0 ? avgTokens : 7460;
+                const inputTokensPerVideo = repTokens * 0.95; // ~95% é input (vídeo)
+                const outputTokensPerVideo = repTokens * 0.05; // ~5% é a transcrição
+                
+                const konbiniCostUSD = vol * 0.01;
+                const geminiCostUSD = vol * ((inputTokensPerVideo * (0.075 / 1000000)) + (outputTokensPerVideo * (0.30 / 1000000)));
+                
+                const exchange = 5.60;
+                const konbiniBrl = konbiniCostUSD * exchange;
+                const geminiBrl = geminiCostUSD * exchange;
+                const totalBrlCalc = konbiniBrl + geminiBrl;
+                const totalTokensCalc = vol * repTokens;
+
+                document.getElementById("calc-konbini").textContent = `R$ ${konbiniBrl.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById("calc-gemini").textContent = `R$ ${geminiBrl.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById("calc-tokens").textContent = totalTokensCalc.toLocaleString('pt-BR');
+                document.getElementById("calc-total").textContent = `R$ ${totalBrlCalc.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                // Cafezinhos equivalentes
+                const coffeeVal = 5.00;
+                const coffees = Math.round(totalBrlCalc / coffeeVal);
+                document.getElementById("val-coffee-calc").textContent = `${coffees.toLocaleString('pt-BR')} cafezinhos`;
+            }
+
+            volInput.addEventListener("input", updateCalculator);
+            updateCalculator(); // Executa o cálculo inicial
+        });
+    </script>
+</body>
+</html>

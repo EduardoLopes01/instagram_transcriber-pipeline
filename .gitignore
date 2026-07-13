@@ -1,0 +1,25 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Configurações sensíveis (API Keys)
+.env
+.env*.local
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Diretórios temporários de mídia e texto
+downloads/*
+!downloads/.gitkeep
+transcripts/*
+!transcripts/.gitkeep
+
+# Arquivos do sistema operacional (macOS)
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
