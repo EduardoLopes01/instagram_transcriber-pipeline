@@ -593,20 +593,25 @@
                 tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Nenhum dado encontrado no histórico. Rode o script scraper.py para popular.</td></tr>`;
             } else {
                 // Ordena por data decrescente (mais recentes primeiro)
+                const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                }[c]));
+
                 const sortedRuns = [...runs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 sortedRuns.forEach(r => {
                     const row = document.createElement("tr");
                     const dateObj = new Date(r.timestamp);
                     const formattedDate = dateObj.toLocaleString('pt-BR');
+                    const shortcode = escapeHtml(r.shortcode);
 
                     row.innerHTML = `
-                        <td><a href="https://www.instagram.com/reel/${r.shortcode}/" target="_blank" class="shortcode-link">${r.shortcode}</a></td>
-                        <td style="color: var(--text-muted);">${formattedDate}</td>
-                        <td>${r.execution_time_seconds}s</td>
-                        <td><span style="font-size: 0.8rem; color: var(--text-muted);">${r.input_tokens.toLocaleString('pt-BR')} I</span> / <span style="font-size: 0.8rem; color: var(--text-muted);">${r.output_tokens.toLocaleString('pt-BR')} O</span></td>
-                        <td>R$ ${r.gemini_cost_brl.toFixed(5)}</td>
-                        <td>R$ ${r.konbini_cost_brl.toFixed(3)}</td>
-                        <td style="font-weight: 600; color: #fff;">R$ ${r.total_cost_brl.toFixed(4)}</td>
+                        <td><a href="https://www.instagram.com/reel/${encodeURIComponent(r.shortcode)}/" target="_blank" class="shortcode-link">${shortcode}</a></td>
+                        <td style="color: var(--text-muted);">${escapeHtml(formattedDate)}</td>
+                        <td>${escapeHtml(r.execution_time_seconds)}s</td>
+                        <td><span style="font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(r.input_tokens.toLocaleString('pt-BR'))} I</span> / <span style="font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(r.output_tokens.toLocaleString('pt-BR'))} O</span></td>
+                        <td>R$ ${escapeHtml(r.gemini_cost_brl.toFixed(5))}</td>
+                        <td>R$ ${escapeHtml(r.konbini_cost_brl.toFixed(3))}</td>
+                        <td style="font-weight: 600; color: #fff;">R$ ${escapeHtml(r.total_cost_brl.toFixed(4))}</td>
                     `;
                     tbody.appendChild(row);
                 });

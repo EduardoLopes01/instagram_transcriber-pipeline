@@ -18,6 +18,9 @@ downloads/*
 transcripts/*
 !transcripts/.gitkeep
 
+# Histórico de execuções (revela shortcodes/alvos raspados)
+history.js
+
 # Arquivos do sistema operacional (macOS)
 .DS_Store
 .AppleDouble

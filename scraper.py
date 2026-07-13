@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 import os
+import getpass
+import ipaddress
+import socket
 import sys
 import re
 import time
+from urllib.parse import urlparse
 import requests
 from dotenv import load_dotenv
 from google import genai
@@ -56,15 +60,18 @@ def fetch_post_data(shortcode: str) -> dict:
     }
     
     print(f"[*] Consultando KonbiniAPI para o shortcode: {shortcode}...")
-    response = requests.get(url, headers=headers)
-    
+    response = requests.get(url, headers=headers, timeout=15)
+
     # Em caso de falha, imprime o JSON de erro para diagnóstico rápido
     if response.status_code != 200:
         print(f"[!] Erro ao consultar a API. Status HTTP: {response.status_code}")
-        try:
-            print("[!] Resposta da API:", response.json())
-        except Exception:
-            print("[!] Corpo da resposta:", response.text)
+        if os.getenv("SCRAPER_DEBUG") == "1":
+            try:
+                print("[!] Resposta da API:", response.json())
+            except Exception:
+                print("[!] Corpo da resposta:", response.text)
+        else:
+            print("[!] Execute com SCRAPER_DEBUG=1 para ver o corpo completo da resposta de erro.")
         response.raise_for_status()
         
     return response.json()
@@ -110,22 +117,47 @@ def extract_video_url(post_data: dict) -> str:
     pprint.pprint(data)
     raise ValueError("Nenhuma URL de vídeo (.mp4) foi encontrada nos metadados do post.")
 
+MAX_VIDEO_BYTES = 500 * 1024 * 1024  # 500 MB
+
+def _validate_video_url(video_url: str):
+    """
+    Garante que a URL de vídeo devolvida pela KonbiniAPI use HTTPS e não
+    aponte para um host que resolva para um IP privado/interno (proteção SSRF).
+    """
+    parsed = urlparse(video_url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Esquema de URL não permitido para download: {parsed.scheme!r}")
+    if not parsed.hostname:
+        raise ValueError("URL de vídeo sem hostname válido.")
+    try:
+        resolved_ip = socket.gethostbyname(parsed.hostname)
+    except socket.gaierror as e:
+        raise ValueError(f"Não foi possível resolver o host do vídeo: {parsed.hostname}") from e
+    if ipaddress.ip_address(resolved_ip).is_private:
+        raise ValueError(f"URL de vídeo aponta para um IP privado/interno: {resolved_ip}")
+
 def download_video(video_url: str, output_path: str):
     """
     Faz o download do vídeo em chunks para evitar estouro de memória.
     """
+    _validate_video_url(video_url)
+
     print(f"[*] Iniciando download do vídeo...")
-    response = requests.get(video_url, stream=True)
+    response = requests.get(video_url, stream=True, timeout=30)
     response.raise_for_status()
-    
+
     total_size = int(response.headers.get('content-length', 0))
     bytes_downloaded = 0
-    
+
     with open(output_path, "wb") as f:
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
-                f.write(chunk)
                 bytes_downloaded += len(chunk)
+                if bytes_downloaded > MAX_VIDEO_BYTES:
+                    f.close()
+                    os.remove(output_path)
+                    raise ValueError(f"Vídeo excede o tamanho máximo permitido ({MAX_VIDEO_BYTES // (1024*1024)}MB).")
+                f.write(chunk)
                 if total_size > 0:
                     percent = (bytes_downloaded / total_size) * 100
                     print(f"\rDownloading: {percent:.2f}% ({bytes_downloaded}/{total_size} bytes)", end="", flush=True)
@@ -156,8 +188,11 @@ def save_to_history(run_data: dict):
     runs.append(run_data)
     
     try:
+        # .replace evita que um valor futuro contendo "</script>" quebre o
+        # contexto do <script> que carrega este arquivo no dashboard.html
+        safe_json = json.dumps(runs, indent=2).replace("</", "<\\/")
         with open(history_file, "w", encoding="utf-8") as f:
-            f.write(f"const HISTORY_DATA = {json.dumps(runs, indent=2)};\n")
+            f.write(f"const HISTORY_DATA = {safe_json};\n")
         print("[+] Histórico de execuções atualizado com sucesso em 'history.js'.")
     except Exception as e:
         print(f"[!] Erro ao gravar histórico: {e}")
@@ -265,18 +300,19 @@ def check_and_prompt_keys():
                 print("[!] Execução abortada. Crie e configure o arquivo .env manualmente.")
                 sys.exit(1)
                 
-            konbini_key = input("1. Digite sua KONBINI_API_KEY: ").strip()
-            gemini_key = input("2. Digite sua GEMINI_API_KEY: ").strip()
-            
+            konbini_key = getpass.getpass("1. Digite sua KONBINI_API_KEY (oculto): ").strip()
+            gemini_key = getpass.getpass("2. Digite sua GEMINI_API_KEY (oculto): ").strip()
+
             if not konbini_key or not gemini_key:
                 print("[!] Erro: Ambas as chaves são obrigatórias para rodar o pipeline.")
                 sys.exit(1)
-                
+
             with open(env_path, "w", encoding="utf-8") as f:
                 f.write(f"# Credenciais da API KonbiniAPI\nKONBINI_API_KEY={konbini_key}\n\n")
                 f.write(f"# Credenciais da API do Gemini\nGEMINI_API_KEY={gemini_key}\n\n")
                 f.write(f"# Configurações do pipeline\nGEMINI_MODEL=gemini-3.1-flash-lite\n")
-                
+            os.chmod(env_path, 0o600)
+
             print(f"\n[+] Configurações salvas com sucesso em: {env_path}")
             
             # Recarregar as variáveis no ambiente atual
