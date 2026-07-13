@@ -232,15 +232,66 @@ def transcribe_video(video_path: str) -> tuple:
         except Exception as e:
             print(f"[!] Erro ao remover arquivo temporário do Gemini: {e}")
 
-def main():
-    # Validar chaves de API
-    if not KONBINI_API_KEY or KONBINI_API_KEY == "sua_chave_konbini_aqui":
-        print("[!] Erro: Defina a variável KONBINI_API_KEY no arquivo .env antes de executar.")
-        sys.exit(1)
+def check_and_prompt_keys():
+    """
+    Verifica se o arquivo .env e as chaves estão configurados.
+    Caso contrário, auxilia o usuário interativamente a criar o arquivo,
+    evitando que usuários leigos precisem gerenciar arquivos ocultos (.*) no sistema.
+    """
+    global KONBINI_API_KEY, GEMINI_API_KEY
+    env_path = os.path.join(BASE_DIR, ".env")
+    
+    needs_setup = False
+    if not os.path.exists(env_path):
+        needs_setup = True
+    else:
+        load_dotenv(env_path, override=True)
+        KONBINI_API_KEY = os.getenv("KONBINI_API_KEY")
+        GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+        if (not KONBINI_API_KEY or KONBINI_API_KEY.strip() == "" or KONBINI_API_KEY == "sua_chave_konbini_aqui" or
+            not GEMINI_API_KEY or GEMINI_API_KEY.strip() == "" or GEMINI_API_KEY == "sua_chave_gemini_aqui"):
+            needs_setup = True
+            
+    if needs_setup:
+        print("\n======================================================")
+        print("          ASSISTENTE DE CONFIGURAÇÃO INICIAL")
+        print("   As chaves de API do pipeline não foram encontradas.")
+        print("   Vamos criar o seu arquivo de configuração (.env) agora.")
+        print("======================================================\n")
         
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "sua_chave_gemini_aqui":
-        print("[!] Erro: Defina a variável GEMINI_API_KEY no arquivo .env antes de executar.")
-        sys.exit(1)
+        try:
+            choice = input("Deseja configurar suas chaves de API agora? (S/n): ").strip().lower()
+            if choice == 'n':
+                print("[!] Execução abortada. Crie e configure o arquivo .env manualmente.")
+                sys.exit(1)
+                
+            konbini_key = input("1. Digite sua KONBINI_API_KEY: ").strip()
+            gemini_key = input("2. Digite sua GEMINI_API_KEY: ").strip()
+            
+            if not konbini_key or not gemini_key:
+                print("[!] Erro: Ambas as chaves são obrigatórias para rodar o pipeline.")
+                sys.exit(1)
+                
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write(f"# Credenciais da API KonbiniAPI\nKONBINI_API_KEY={konbini_key}\n\n")
+                f.write(f"# Credenciais da API do Gemini\nGEMINI_API_KEY={gemini_key}\n\n")
+                f.write(f"# Configurações do pipeline\nGEMINI_MODEL=gemini-3.1-flash-lite\n")
+                
+            print(f"\n[+] Configurações salvas com sucesso em: {env_path}")
+            
+            # Recarregar as variáveis no ambiente atual
+            load_dotenv(env_path, override=True)
+            KONBINI_API_KEY = os.getenv("KONBINI_API_KEY")
+            GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+            print("[+] Configuração carregada. Iniciando execução do pipeline...\n")
+            
+        except KeyboardInterrupt:
+            print("\n[!] Configuração cancelada pelo usuário.")
+            sys.exit(1)
+
+def main():
+    # Validar e configurar chaves de API interativamente se necessário
+    check_and_prompt_keys()
 
     input_str = parse_args()
     
